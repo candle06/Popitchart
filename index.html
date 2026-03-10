@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>템 시세 시스템</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{background:#111;color:white;font-family:sans-serif;padding:20px;}
+input,button,select{padding:8px;margin:5px;}
+#chartSection{display:none;}
+.adminOnly{display:none;}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:20px;
+  background:#1e1e1e;
+}
+th,td{
+  padding:8px;
+  text-align:center;
+  border-bottom:1px solid #333;
+}
+th{background:#222;}
+.up{color:#00ff88;font-weight:bold;}
+.down{color:#ff4444;font-weight:bold;}
+.flat{color:#aaa;}
+.latest{background:#1a2f1f;font-weight:bold;}
+</style>
+</head>
+<body>
+
+<h2>📈 템 시세 시스템</h2>
+
+<div id="loginBox">
+<input type="text" id="username" placeholder="아이디">
+<input type="password" id="password" placeholder="비밀번호">
+<button onclick="login()">로그인</button>
+</div>
+
+<div id="chartSection">
+<button onclick="logout()">로그아웃</button>
+<p id="roleText"></p>
+
+<select id="itemSelect"></select>
+
+<div class="adminOnly">
+<input type="date" id="date">
+<input type="number" id="price" placeholder="시세 입력">
+<button onclick="addPrice()">시세 추가</button>
+</div>
+
+<canvas id="chart"></canvas>
+
+<h3>📋 시세 기록표</h3>
+<table>
+<thead>
+<tr>
+<th>날짜</th>
+<th>가격</th>
+<th>등락</th>
+<th>등락률</th>
+</tr>
+</thead>
+<tbody id="dataTable"></tbody>
+</table>
+
+</div>
+
+<script>
+
+// 🔐 고정 계정
+const ACCOUNTS = {
+  "admin": { password: "candle0627!!", role: "admin" },
+  "user": { password: "0627!!", role: "user" }
+};
+
+const items = ["부품A","부품B","번개","도끼","보름","송편","한우","마초","미고"];
+
+let storage = JSON.parse(localStorage.getItem("marketData")) || {};
+let currentRole = null;
+
+// 아이템 초기화
+items.forEach(i=>{
+  if(!storage[i]) storage[i]=[];
+  let opt=document.createElement("option");
+  opt.value=i;
+  opt.text=i;
+  document.getElementById("itemSelect").appendChild(opt);
+});
+
+localStorage.setItem("marketData",JSON.stringify(storage));
+
+let chart = new Chart(document.getElementById("chart"),{
+  type:'line',
+  data:{labels:[],datasets:[{label:'',data:[],borderWidth:2,tension:0.2}]},
+  options:{responsive:true}
+});
+
+function login(){
+  const username=document.getElementById("username").value;
+  const password=document.getElementById("password").value;
+
+  if(ACCOUNTS[username] && ACCOUNTS[username].password===password){
+    localStorage.setItem("loginUser",username);
+    currentRole=ACCOUNTS[username].role;
+    showApp();
+  }else{
+    alert("로그인 실패");
+  }
+}
+
+function logout(){
+  localStorage.removeItem("loginUser");
+  location.reload();
+}
+
+function showApp(){
+  document.getElementById("loginBox").style.display="none";
+  document.getElementById("chartSection").style.display="block";
+  document.getElementById("roleText").innerText="권한: "+currentRole;
+
+  if(currentRole==="admin"){
+    document.querySelector(".adminOnly").style.display="block";
+  }
+
+  loadChart(document.getElementById("itemSelect").value);
+}
+
+function loadChart(item){
+  let data = storage[item];
+  data.sort((a,b)=>new Date(a.date)-new Date(b.date));
+
+  chart.data.labels=data.map(d=>d.date);
+  chart.data.datasets[0].data=data.map(d=>Number(d.price));
+  chart.data.datasets[0].label=item+" 시세";
+
+  if(data.length>1){
+    chart.data.datasets[0].borderColor =
+      data[data.length-1].price >= data[data.length-2].price
+      ? "#00ff88"
+      : "#ff4444";
+  }else{
+    chart.data.datasets[0].borderColor="#00aaff";
+  }
+
+  chart.update();
+  updateTable(data);
+}
+
+function updateTable(data){
+  const table=document.getElementById("dataTable");
+  table.innerHTML="";
+
+  const sorted=[...data].sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+  sorted.forEach((d,i)=>{
+    let diff="";
+    let percent="";
+    let className="flat";
+
+    const originalIndex=data.findIndex(x=>x.date===d.date);
+
+    if(originalIndex>0){
+      const prev=Number(data[originalIndex-1].price);
+      const current=Number(d.price);
+      const change=current-prev;
+      const rate=((change/prev)*100).toFixed(2);
+
+      diff=(change>0?"+":"")+change.toFixed(2);
+      percent=(change>0?"+":"")+rate+"%";
+
+      if(change>0) className="up";
+      else if(change<0) className="down";
+    }
+
+    table.innerHTML+=`
+      <tr class="${i===0?'latest':''}">
+        <td>${d.date}</td>
+        <td>${d.price}</td>
+        <td class="${className}">${diff}</td>
+        <td class="${className}">${percent}</td>
+      </tr>
+    `;
+  });
+}
+
+function addPrice(){
+  if(currentRole!=="admin"){
+    alert("관리자만 가능");
+    return;
+  }
+
+  const item=document.getElementById("itemSelect").value;
+  const date=document.getElementById("date").value;
+  const price=document.getElementById("price").value;
+
+  if(!date || !price){
+    alert("날짜랑 가격 입력");
+    return;
+  }
+
+  storage[item].push({date,price});
+  localStorage.setItem("marketData",JSON.stringify(storage));
+  loadChart(item);
+}
+
+document.getElementById("itemSelect").addEventListener("change",e=>{
+  loadChart(e.target.value);
+});
+
+// 🔁 자동 로그인
+window.onload=function(){
+  const savedUser=localStorage.getItem("loginUser");
+  if(savedUser && ACCOUNTS[savedUser]){
+    currentRole=ACCOUNTS[savedUser].role;
+    showApp();
+  }
+};
+
+</script>
+
+</body>
+</html>
