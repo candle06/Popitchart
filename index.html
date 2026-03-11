@@ -46,23 +46,23 @@ th{background:#222;}
 <select id="itemSelect"></select>
 
 <select id="viewMode">
-<option value="daily">일별</option>
-<option value="weekly">주별</option>
-<option value="monthly">월별</option>
-<option value="yearly">연별</option>
+  <option value="daily">일별</option>
+  <option value="weekly">주별</option>
+  <option value="monthly">월별</option>
+  <option value="yearly">연별</option>
 </select>
+
+<p id="basePriceText"></p>
 
 <div class="adminOnly">
 <input type="date" id="date">
-<input type="number" id="price" placeholder="시세 입력">
+<input type="number" step="0.01" id="price" placeholder="시세 입력">
 <button onclick="addPrice()">시세 추가</button>
 </div>
 
-<h3 id="basePriceText"></h3>
-
 <canvas id="chart"></canvas>
 
-<h3>📋 시세 기록표</h3>
+<h3>📋 시세 기록표 (최신 위)</h3>
 <table>
 <thead>
 <tr>
@@ -79,17 +79,35 @@ th{background:#222;}
 
 <script>
 
-const BASE_DATE = "2026-03-10";
-
-const ACCOUNTS = {
-  "admin": { password: "candle0627!!", role: "admin" },
-  "user": { password: "0627!!", role: "user" }
+// 🔐 계정
+const ACCOUNTS={
+  admin:{password:"candle0627!!",role:"admin"},
+  user:{password:"0627!!",role:"user"}
 };
 
-const items = ["부품A","부품B","번개","도끼","보름","송편","한우","마초","미고"];
+const BASE_DATE="2026-03-10";
 
-let storage = JSON.parse(localStorage.getItem("marketData")) || {};
-let currentRole = null;
+const BASE_PRICES={
+  "부품A":0,
+  "부품B":2.0,
+  "번개":13,
+  "도끼":4,
+  "보름":0.15,
+  "송편":0.09,
+  "한우":0.5,
+  "마초":0.08,
+  "미고":0.07
+};
+
+const items=Object.keys(BASE_PRICES);
+
+let storage=JSON.parse(localStorage.getItem("marketData"))||{};
+let currentRole=null;
+
+const itemSelect=document.getElementById("itemSelect");
+const viewMode=document.getElementById("viewMode");
+const dataTable=document.getElementById("dataTable");
+const basePriceText=document.getElementById("basePriceText");
 
 items.forEach(i=>{
   if(!storage[i]) storage[i]=[];
@@ -101,7 +119,7 @@ items.forEach(i=>{
 
 localStorage.setItem("marketData",JSON.stringify(storage));
 
-let chart = new Chart(document.getElementById("chart"),{
+let chart=new Chart(document.getElementById("chart"),{
   type:'line',
   data:{labels:[],datasets:[{label:'',data:[],borderWidth:2,tension:0.2}]},
   options:{responsive:true}
@@ -110,7 +128,7 @@ let chart = new Chart(document.getElementById("chart"),{
 function login(){
   const u=username.value;
   const p=password.value;
-  if(ACCOUNTS[u] && ACCOUNTS[u].password===p){
+  if(ACCOUNTS[u]&&ACCOUNTS[u].password===p){
     localStorage.setItem("loginUser",u);
     currentRole=ACCOUNTS[u].role;
     showApp();
@@ -126,79 +144,91 @@ function showApp(){
   loginBox.style.display="none";
   chartSection.style.display="block";
   roleText.innerText="권한: "+currentRole;
-  if(currentRole==="admin") document.querySelector(".adminOnly").style.display="block";
+  if(currentRole==="admin")
+    document.querySelector(".adminOnly").style.display="block";
   loadChart();
 }
 
 function groupData(data,mode){
   if(mode==="daily") return data;
 
-  let grouped={};
+  const grouped={};
 
   data.forEach(d=>{
-    let key;
     const date=new Date(d.date);
+    let key;
 
     if(mode==="weekly"){
       const first=new Date(date.getFullYear(),0,1);
       const week=Math.ceil((((date-first)/86400000)+first.getDay()+1)/7);
       key=date.getFullYear()+"-W"+week;
     }
-    if(mode==="monthly") key=date.getFullYear()+"-"+(date.getMonth()+1);
-    if(mode==="yearly") key=date.getFullYear();
+    if(mode==="monthly")
+      key=date.getFullYear()+"-"+(date.getMonth()+1);
+    if(mode==="yearly")
+      key=date.getFullYear();
 
-    if(!grouped[key]) grouped[key]=[];
-    grouped[key].push(Number(d.price));
+    grouped[key]=d;
   });
 
-  return Object.keys(grouped).map(k=>{
-    const avg=grouped[k].reduce((a,b)=>a+b,0)/grouped[k].length;
-    return {date:k,price:avg.toFixed(2)};
-  });
+  return Object.entries(grouped).map(([k,v])=>({date:k,price:v.price}));
 }
 
 function loadChart(){
   const item=itemSelect.value;
   const mode=viewMode.value;
 
-  let data=[...storage[item]].sort((a,b)=>new Date(a.date)-new Date(b.date));
+  let data=[...storage[item]];
 
-  const baseEntry=data.find(d=>d.date===BASE_DATE);
-  const basePrice=baseEntry?Number(baseEntry.price):null;
+  // 🔥 기준가 없으면 자동 삽입
+  if(!data.find(d=>d.date===BASE_DATE)){
+    data.push({date:BASE_DATE,price:BASE_PRICES[item]});
+    storage[item]=data;
+    localStorage.setItem("marketData",JSON.stringify(storage));
+  }
 
-  if(basePrice) basePriceText.innerText="3/10 기준가: "+basePrice;
-  else basePriceText.innerText="3/10 기준가 없음";
+  data.sort((a,b)=>new Date(a.date)-new Date(b.date));
+
+  const basePrice=Number(BASE_PRICES[item]);
+  basePriceText.innerText="3/10 기준가: "+basePrice;
 
   let displayData=groupData(data,mode);
 
   chart.data.labels=displayData.map(d=>d.date);
-  chart.data.datasets[0].data=displayData.map(d=>d.price);
+  chart.data.datasets[0].data=displayData.map(d=>Number(d.price));
   chart.data.datasets[0].label=item+" ("+mode+")";
-  chart.update();
 
+  if(displayData.length>1){
+    const last=displayData.at(-1).price;
+    const prev=displayData.at(-2).price;
+    chart.data.datasets[0].borderColor=
+      last>=prev?"#00ff88":"#ff4444";
+  }
+
+  chart.update();
   updateTable(data,basePrice);
 }
 
 function updateTable(data,basePrice){
+  // 🔥 최신 위로 내림차순
   data=[...data].sort((a,b)=>new Date(b.date)-new Date(a.date));
   dataTable.innerHTML="";
 
   data.forEach((d,i)=>{
-    let diff="",percent="",className="flat";
+    let change=Number(d.price)-basePrice;
+    let diff=(change>0?"+":"")+change.toFixed(2);
+    let percent=basePrice!==0
+      ?(change>0?"+":"")+((change/basePrice)*100).toFixed(2)+"%"
+      :"0%";
 
-    if(basePrice){
-      const change=d.price-basePrice;
-      const rate=((change/basePrice)*100).toFixed(2);
-      diff=(change>0?"+":"")+change;
-      percent=(change>0?"+":"")+rate+"%";
-      if(change>0) className="up";
-      else if(change<0) className="down";
-    }
+    let className="flat";
+    if(change>0) className="up";
+    else if(change<0) className="down";
 
     dataTable.innerHTML+=`
       <tr class="${i===0?'latest':''}">
         <td>${d.date}</td>
-        <td>${d.price}</td>
+        <td>${Number(d.price)}</td>
         <td class="${className}">${diff}</td>
         <td class="${className}">${percent}</td>
       </tr>
@@ -207,28 +237,36 @@ function updateTable(data,basePrice){
 }
 
 function addPrice(){
-  if(currentRole!=="admin") return alert("관리자만 가능");
+  if(currentRole!=="admin"){
+    alert("관리자만 가능");
+    return;
+  }
   const item=itemSelect.value;
   const date=document.getElementById("date").value;
-  const price=Number(document.getElementById("price").value);
-  if(!date||!price) return alert("입력 필요");
+  const price=document.getElementById("price").value;
+
+  if(!date||!price){
+    alert("날짜랑 가격 입력");
+    return;
+  }
 
   storage[item].push({date,price});
   localStorage.setItem("marketData",JSON.stringify(storage));
   loadChart();
 }
 
-itemSelect.onchange=loadChart;
-viewMode.onchange=loadChart;
+itemSelect.addEventListener("change",loadChart);
+viewMode.addEventListener("change",loadChart);
 
 window.onload=function(){
   const saved=localStorage.getItem("loginUser");
-  if(saved && ACCOUNTS[saved]){
+  if(saved&&ACCOUNTS[saved]){
     currentRole=ACCOUNTS[saved].role;
     showApp();
   }
 };
 
 </script>
+
 </body>
 </html>
