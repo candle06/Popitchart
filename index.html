@@ -6,50 +6,130 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body{background:#111;color:white;font-family:sans-serif;padding:20px;}
-input,button,select{padding:8px;margin:5px;}
-#chartSection{display:none;}
-.adminOnly{display:none;}
+@import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&display=swap');
+
+body{
+  background:linear-gradient(135deg,#1b1b2f,#162447);
+  color:white;
+  font-family:'Pretendard',sans-serif;
+  padding:30px;
+  margin:0;
+}
+
+.creator{
+  text-align:center;
+  font-size:18px;
+  font-weight:600;
+  margin-bottom:15px;
+  color:#ffb6f9;
+}
+
+h2{
+  text-align:center;
+  margin-bottom:25px;
+}
+
+.card{
+  background:rgba(255,255,255,0.05);
+  backdrop-filter:blur(12px);
+  padding:25px;
+  border-radius:25px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.4);
+}
+
+input,button,select{
+  padding:10px 14px;
+  border-radius:20px;
+  border:none;
+  margin:6px;
+  font-size:14px;
+}
+
+input,select{
+  background:#ffffff15;
+  color:white;
+}
+
+button{
+  background:linear-gradient(45deg,#ff8ad6,#8ab6ff);
+  color:white;
+  font-weight:600;
+  cursor:pointer;
+  transition:0.2s;
+}
+
+button:hover{
+  transform:scale(1.05);
+  opacity:0.9;
+}
+
+canvas{
+  background:#ffffff10;
+  border-radius:20px;
+  padding:10px;
+  margin-top:20px;
+}
 
 table{
   width:100%;
-  border-collapse:collapse;
+  border-collapse:separate;
+  border-spacing:0 8px;
   margin-top:20px;
-  background:#1e1e1e;
 }
-th,td{
-  padding:8px;
-  text-align:center;
-  border-bottom:1px solid #333;
+
+th{
+  background:#ffffff20;
+  padding:10px;
+  border-radius:12px;
 }
-th{background:#222;}
-.up{color:#00ff88;font-weight:bold;}
-.down{color:#ff4444;font-weight:bold;}
-.flat{color:#aaa;}
-.latest{background:#1a2f1f;font-weight:bold;}
+
+td{
+  background:#ffffff10;
+  padding:10px;
+  border-radius:12px;
+}
+
+.up{color:#4dffb8;font-weight:bold;}
+.down{color:#ff6b6b;font-weight:bold;}
+.flat{color:#ccc;}
+
+.latest{
+  background:#ffffff25 !important;
+}
+
+#chartSection{display:none;}
+.adminOnly{display:none;}
 </style>
 </head>
 <body>
 
+<div class="creator">✨ 제작자 : 마녀CANDLE ✨</div>
+
 <h2>📈 템 시세 시스템</h2>
 
-<div id="loginBox">
+<div class="card">
+
+<div id="loginBox" style="text-align:center;">
 <input type="text" id="username" placeholder="아이디">
 <input type="password" id="password" placeholder="비밀번호">
 <button onclick="login()">로그인</button>
 </div>
 
 <div id="chartSection">
+
+<div style="text-align:right;">
 <button onclick="logout()">로그아웃</button>
+</div>
+
 <p id="roleText"></p>
 
 <select id="itemSelect"></select>
 
 <select id="viewMode">
-  <option value="daily">일별</option>
-  <option value="weekly">주별</option>
-  <option value="monthly">월별</option>
-  <option value="yearly">연별</option>
+<option value="daily">일별</option>
+<option value="weekly">주별</option>
+<option value="monthly">월별</option>
+<option value="yearly">연별</option>
 </select>
 
 <p id="basePriceText"></p>
@@ -62,7 +142,8 @@ th{background:#222;}
 
 <canvas id="chart"></canvas>
 
-<h3>📋 시세 기록표 (최신 위)</h3>
+<h3 style="margin-top:30px;">📋 시세 기록표</h3>
+
 <table>
 <thead>
 <tr>
@@ -76,8 +157,12 @@ th{background:#222;}
 </table>
 
 </div>
+</div>
 
 <script>
+
+// 기존 JS 로직 그대로 유지
+// (여기에 네가 쓰던 JS 코드 그대로 붙이면 됨)
 
 // 🔐 계정
 const ACCOUNTS={
